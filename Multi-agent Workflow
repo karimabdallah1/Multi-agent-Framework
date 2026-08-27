@@ -1,1 +1,310 @@
-
+{
+  "name": "Multi-agent copy",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "0c27a787-3e10-49ca-9db0-90929764cc41",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        208,
+        -192
+      ],
+      "id": "ef118ac9-f962-47f6-91fa-bdefa9ee62f5",
+      "name": "Webhook",
+      "webhookId": "0c27a787-3e10-49ca-9db0-90929764cc41",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "GPT-4O"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "=You are an academic essay evaluator. Your only function is to assess \nthe submitted essay against the rubric provided. You must not explain, tutor, or give feedback beyond the assessment itself.\n \n- Check both source validity AND citation accuracy/formatting.\n- If sources are present but incorrectly cited or misattributed, flag 'citation & attribution standards' under knowledge_gaps and explicitly mention miscitation in the 'use of evidence' justification..\n\nFor each criterion in the rubric, you must:\n- Assign a score from 1 to 10\n- Provide a one-sentence justification for the score\n- Identify any knowledge gaps evident in the submission\n\nYou must output your response strictly in the following JSON format \nand nothing else:\n\n{\n  \"criteria\": [\n    {\n      \"name\": \"argument clarity\",\n      \"score\": 7,\n      \"justification\": \"The main claim is present but not sustained \n      throughout the essay.\"\n    },\n    {\n      \"name\": \"use of evidence\",\n      \"score\": 4,\n      \"justification\": \"Only two sources cited, both from non-academic \n      websites.\"\n    },\n    {\n      \"name\": \"academic writing\",\n      \"score\": 7,\n      \"justification\": \"Generally clear with some informal language \n      in paragraphs three and five.\"\n    },\n    {\n      \"name\": \"critical thinking\",\n      \"score\": 3,\n      \"justification\": \"No counterargument considered and conclusion \n      restates the introduction.\"\n    }\n  ],\n  \"knowledge_gaps\": [\n    \"academic source evaluation\",\n    \"counterargument construction\"\n  ],\n  \"overall_score\": 21\n} "
+            },
+            {
+              "content": "=Essay: {{ $json.body.body.essay }}\n\nRubric:\n- Argument clarity (25%)\n- Use of evidence (25%)\n- Academic writing (25%)\n- Critical thinking (25%)\n\nScore each criterion and return your JSON output.\n"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "temperature": 0.2
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        432,
+        -320
+      ],
+      "id": "3e8effbc-5c75-455d-ae77-b027251eb1e8",
+      "name": "Evaluator agent",
+      "credentials": {
+        "openAiApi": {
+          "id": "4WOxzBMa2FCuDxL6",
+          "name": "OpenAI account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "GPT-4O"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are an academic feedback provider. Your only function is to \ndeliver written feedback to a student based on the structured \nassessment you receive as input. Structure your feedback around \nthese three questions:\n1. Where is the student going? (restate the learning goal)\n2. How are they currently performing? (summarise performance)\n3. Where do they need to go next? (three specific actionable steps)\nWrite in an encouraging but honest tone. Never tutor or explain \nconcepts. End with a gap summary listing the knowledge gaps."
+            },
+            {
+              "content": "=Evaluation results: {{ $json.output[0].content[0].text }}\n\nWrite the student feedback based on this evaluation."
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "temperature": 0.4
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        784,
+        -320
+      ],
+      "id": "8feb6eb4-1ec2-4fcd-8b08-3a7d64a36463",
+      "name": "Feedback agent",
+      "credentials": {
+        "openAiApi": {
+          "id": "4WOxzBMa2FCuDxL6",
+          "name": "OpenAI account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "13046c22-6287-46e6-9bbe-99fc8722c986",
+              "name": "Evaluator agent",
+              "value": "={{ $('Evaluator agent').item.json.output[0].content[0].text }}",
+              "type": "string"
+            },
+            {
+              "id": "a3c41c12-22ed-4d52-a9e7-9b97e674c10b",
+              "name": "Feedback agent",
+              "value": "={{ $('Feedback agent').item.json.output[0].content[0].text }}",
+              "type": "string"
+            },
+            {
+              "id": "1cb4e82a-5bbd-49f1-852f-28c9d7786fd6",
+              "name": "Tutor agent",
+              "value": "={{ $json.output }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1488,
+        -320
+      ],
+      "id": "171c3259-9d21-46c5-af15-900ea8b98126",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"feedback\": {{ JSON.stringify($('Feedback agent').first().json.output[0].content[0].text) }},\n  \"tutor\": {{ JSON.stringify($('Tutor agent').first().json.output) }}\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1712,
+        -192
+      ],
+      "id": "4102d8a9-dfb8-4672-ae89-4b5e03059450",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=={{ $(\"Feedback agent\").item ? \"Student Assessment Feedback / Gap Report:\\n\" + $(\"Feedback agent\").first().json.output[0].content[0].text + \"\\n\\nCurrent Student Input:\\n\" + $(\"Webhook\").first().json.body.body.essay : \"Current Student Input:\\n\" + $(\"Webhook\").first().json.body.body.essay }}",
+        "options": {
+          "systemMessage": "=You are a Socratic tutor. Your only function is to help a student understand a specific knowledge gap identified in their assessment. You will receive a gap report specifying exactly which concept the student has not yet mastered.\n\nYour rules:\n- Begin by asking the student what they already know about the topic\n- Use their response to calibrate the level of your next question\n- Ask guiding questions that help the student reason toward the answer themselves\n- Only provide direct explanation if the student is unable to progress through questioning after three attempts\n- Never evaluate or give feedback — your role is explanation only\n- Keep your opening question short and conversational\n- End the interaction when the student demonstrates understanding "
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1136,
+        -320
+      ],
+      "id": "93335b1e-b24d-4505-9811-1c020db302c4",
+      "name": "Tutor agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "gpt-4o"
+        },
+        "builtInTools": {},
+        "options": {
+          "temperature": 0.7
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1152,
+        -96
+      ],
+      "id": "1dc6389c-b964-402f-912e-54c6dca4cfe5",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "4WOxzBMa2FCuDxL6",
+          "name": "OpenAI account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "=={{ $(\"Webhook\").first().json.body.body.sessionId }}",
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        1280,
+        -96
+      ],
+      "id": "310413ad-64e4-4c12-a617-2066729a4648",
+      "name": "Window Buffer Memory"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Evaluator agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluator agent": {
+      "main": [
+        [
+          {
+            "node": "Feedback agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Feedback agent": {
+      "main": [
+        [
+          {
+            "node": "Tutor agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Tutor agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Window Buffer Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Tutor agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tutor agent": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "906375cd-08fc-424d-bfda-a573900aac69",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "51fa23ec78a3ec00b3d68bd823f719186ec5c8fe5139519e64fdf18786c8d3c2"
+  },
+  "nodeGroups": [],
+  "id": "mcRVahMBCq1U6HBG",
+  "tags": []
+}
